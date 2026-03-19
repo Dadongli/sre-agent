@@ -27,6 +27,18 @@ frontend/  React 控制台原型
 - `GET /api/agent/runbook/`
   - 返回四大能力域的 runbook / 产品能力说明。
 
+## 后端核心模型
+
+当前 MVP 已补齐一版面向 SRE Agent 控制中心的核心领域模型，集中在 `backend/apps/controlcenter/models.py`：
+
+- **资源与拓扑**：`Team`、`Environment`、`Service`、`ServiceEnvironment`、`ServiceDependency`
+- **告警与故障**：`AlertRule`、`Incident`、`IncidentPrediction`
+- **自动化闭环**：`Runbook`、`AutomationExecution`
+- **知识与对话**：`KnowledgeDocument`、`ChatSession`、`ChatMessage`
+- **平台治理**：`AgentSnapshot`、`AuditLog`
+
+这些模型用于承载服务目录、依赖关系、告警规则、故障生命周期、预测、自愈执行、知识引用、ChatOps 会话以及平台审计。
+
 ## 前端页面能力
 
 - 平台首页展示：
