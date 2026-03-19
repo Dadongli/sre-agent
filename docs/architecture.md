@@ -35,6 +35,20 @@
   - `chatops`
   - `governance`
 
+### Backend Core Domain Model
+
+当前在 `apps.controlcenter` 中先统一落一版核心领域模型，后续可按域拆分成独立 app：
+
+- **Resource Topology**：`Team`、`Service`、`Environment`、`ServiceEnvironment`、`ServiceDependency`
+- **Observability & Alerting**：`AlertRule`、`AgentSnapshot`
+- **Incident Management**：`Incident`、`IncidentPrediction`
+- **Automation**：`Runbook`、`AutomationExecution`
+- **Knowledge Base**：`KnowledgeDocument`
+- **ChatOps**：`ChatSession`、`ChatMessage`
+- **Governance / Audit**：`AuditLog`
+
+这样可以覆盖服务目录、依赖拓扑、告警规则、故障闭环、自愈执行、知识引用、对话记录和审计留痕等后端核心对象。
+
 ## 3. Agent Workflow
 
 1. **Signal Ingestion**：采集 Prometheus / Loki / Tempo / 云监控 / CMDB / 发布事件。
