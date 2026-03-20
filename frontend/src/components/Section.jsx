@@ -1,6 +1,6 @@
-export function Section({ title, subtitle, children }) {
+export function Section({ title, subtitle, children, id }) {
   return (
-    <section className="panel">
+    <section className="panel" id={id}>
       <div className="panel__header">
         <div>
           <h2>{title}</h2>
