@@ -1,9 +1,102 @@
+export const navigation = [
+  { label: 'Overview', description: '首页总览', href: '#overview', active: true },
+  { label: 'Observability', description: '指标 / 日志 / 链路', href: '#observability' },
+  { label: 'Incidents', description: '告警 / 根因 / 自愈', href: '#incidents' },
+  { label: 'Capabilities', description: '能力地图', href: '#capabilities' },
+  { label: 'ChatOps', description: '自然语言操作台', href: '#chatops' },
+]
+
+export const quickActions = ['创建值班简报', '触发 runbook', '查看告警抑制', '打开知识库检索']
+
+export const workbenchTabs = [
+  { label: '值班视角', value: 'On-call' },
+  { label: '平台视角', value: 'Platform' },
+  { label: '管理视角', value: 'Executive' },
+]
+
+export const capabilityHighlights = [
+  {
+    tag: 'Observability',
+    title: '统一信号入口',
+    description: '将指标、日志、链路、变更事件统一编排到首页视图，降低故障定位切换成本。',
+  },
+  {
+    tag: 'Automation',
+    title: '受控自愈闭环',
+    description: '为故障预测、风险评估、Runbook 执行与审核确认预留标准化 UI 承载层。',
+  },
+  {
+    tag: 'Knowledge',
+    title: '知识检索基座',
+    description: '沉淀 SOP、架构文档、复盘结论和 CMDB 元数据的统一消费入口。',
+  },
+]
+
+export const serviceHealth = [
+  {
+    name: 'checkout-api',
+    owner: 'Owner: Commerce SRE · Region: ap-southeast-1',
+    status: 'Healthy',
+    statusTone: 'healthy',
+    slo: '99.95% SLO',
+    lastEvent: '最近动作：扩容 worker 30 分钟前完成',
+  },
+  {
+    name: 'log-ingestor',
+    owner: 'Owner: Data Platform · Kafka Pipeline',
+    status: 'Degraded',
+    statusTone: 'warning',
+    slo: 'Lag +18%',
+    lastEvent: '最近动作：非关键 topic 已限流',
+  },
+  {
+    name: 'payment-gateway',
+    owner: 'Owner: FinOps Reliability · Multi AZ',
+    status: 'Protected',
+    statusTone: 'improving',
+    slo: 'Error budget 72%',
+    lastEvent: '最近动作：熔断策略已下发',
+  },
+]
+
 export const dashboard = {
   cards: [
-    { label: 'Availability', value: '99.982%', trend: '+0.12%', status: 'healthy' },
-    { label: 'Active Alerts', value: '7', trend: '-3', status: 'warning' },
-    { label: 'Auto Remediations', value: '18', trend: '+5', status: 'healthy' },
-    { label: 'Knowledge Coverage', value: '86%', trend: '+9%', status: 'improving' },
+    {
+      label: 'Availability',
+      value: '99.982%',
+      trend: '+0.12%',
+      status: 'healthy',
+      statusTone: 'healthy',
+      badge: 'Stable',
+      meta: '近 24h 聚合可用性',
+    },
+    {
+      label: 'Active Alerts',
+      value: '7',
+      trend: '-3',
+      status: 'warning',
+      statusTone: 'warning',
+      badge: 'Needs triage',
+      meta: 'P1=1 / P2=2 / P3=4',
+    },
+    {
+      label: 'Auto Remediations',
+      value: '18',
+      trend: '+5',
+      status: 'healthy',
+      statusTone: 'healthy',
+      badge: 'Executed',
+      meta: '过去 7 天自动闭环次数',
+    },
+    {
+      label: 'Knowledge Coverage',
+      value: '86%',
+      trend: '+9%',
+      status: 'improving',
+      statusTone: 'improving',
+      badge: 'Growing',
+      meta: '关键服务 SOP 覆盖率',
+    },
   ],
   timeline: [
     { time: '09:00', latency: 142, errorRate: 0.9, cpu: 41 },
@@ -28,7 +121,7 @@ export const dashboard = {
   ],
   chatopsExamples: [
     'Show me latency anomalies for checkout-api in production during the last 60 minutes.',
-    'Summarize today\'s active alerts, probable root causes, and suggested next actions.',
+    "Summarize today's active alerts, probable root causes, and suggested next actions.",
     'Open the payment-service runbook and prepare a self-healing plan for connection saturation.',
   ],
 }
