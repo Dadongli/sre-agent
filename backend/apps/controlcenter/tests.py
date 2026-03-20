@@ -8,6 +8,7 @@ from django.test import Client, TestCase
 from django.utils import timezone
 
 from .models import (
+    AgentSnapshot,
     AlertRule,
     AutomationExecution,
     ChatMessage,
@@ -15,6 +16,7 @@ from .models import (
     Environment,
     Incident,
     IncidentPrediction,
+    KnowledgeDocument,
     Runbook,
     Service,
     ServiceDependency,
@@ -26,6 +28,138 @@ from .models import (
 class DashboardApiTests(TestCase):
     def setUp(self) -> None:
         self.client = Client()
+        self.team = Team.objects.create(
+            name='SRE Platform',
+            slug='sre-platform',
+            team_type=Team.TeamType.SRE,
+            contact_email='sre@example.com',
+        )
+        self.prod = Environment.objects.create(
+            name='Production',
+            slug='production',
+            environment_type=Environment.EnvironmentType.PRODUCTION,
+            region='us-east-1',
+        )
+        self.staging = Environment.objects.create(
+            name='Staging',
+            slug='staging',
+            environment_type=Environment.EnvironmentType.STAGING,
+            region='us-east-1',
+            is_customer_facing=False,
+        )
+        self.checkout = Service.objects.create(
+            name='checkout-api',
+            slug='checkout-api',
+            tier=Service.Tier.TIER_0,
+            owning_team=self.team,
+        )
+        self.search = Service.objects.create(
+            name='search-api',
+            slug='search-api',
+            tier=Service.Tier.TIER_1,
+            owning_team=self.team,
+        )
+        ServiceEnvironment.objects.create(
+            service=self.checkout,
+            environment=self.prod,
+            namespace='checkout',
+            cluster='prod-main',
+            is_primary=True,
+        )
+        ServiceEnvironment.objects.create(
+            service=self.search,
+            environment=self.staging,
+            namespace='search',
+            cluster='staging-main',
+            is_primary=True,
+        )
+
+        detected_at = timezone.now() - timedelta(minutes=45)
+        Incident.objects.create(
+            public_id='INC-1001',
+            title='Checkout latency spike',
+            summary='Latency increased after deploy.',
+            service=self.checkout,
+            environment=self.prod,
+            severity=Incident.Severity.SEV1,
+            status=Incident.Status.MITIGATING,
+            detected_at=detected_at,
+        )
+        Incident.objects.create(
+            public_id='INC-1002',
+            title='Search cache cold start',
+            summary='Recovered after warmup.',
+            service=self.search,
+            environment=self.staging,
+            severity=Incident.Severity.SEV3,
+            status=Incident.Status.RESOLVED,
+            detected_at=detected_at - timedelta(minutes=20),
+            resolved_at=detected_at - timedelta(minutes=5),
+        )
+        IncidentPrediction.objects.create(
+            service=self.checkout,
+            environment=self.prod,
+            risk_score=Decimal('0.91'),
+            confidence=Decimal('0.83'),
+            horizon_minutes=30,
+            probable_cause='Cache shard saturation',
+            recommended_action='Scale worker pool',
+            supporting_signals=['latency', 'cache-hit-rate'],
+        )
+        Runbook.objects.create(
+            name='Investigate checkout latency',
+            slug='investigate-checkout-latency',
+            domain=Runbook.Domain.OBSERVABILITY,
+            description='Inspect p95 latency, traces, and deploy diff.',
+            steps=['Check dashboards', 'Compare traces'],
+            linked_service=self.checkout,
+            requires_approval=False,
+        )
+        Runbook.objects.create(
+            name='Execute guarded rollback',
+            slug='execute-guarded-rollback',
+            domain=Runbook.Domain.AUTOMATION,
+            description='Roll back the latest release with approval guardrails.',
+            steps=['Validate blast radius', 'Rollback deployment'],
+            linked_service=self.checkout,
+        )
+        KnowledgeDocument.objects.create(
+            title='Checkout architecture',
+            slug='checkout-architecture',
+            document_type=KnowledgeDocument.DocumentType.ARCHITECTURE,
+            summary='Service topology and dependency critical path.',
+            service=self.checkout,
+        )
+        KnowledgeDocument.objects.create(
+            title='Operator FAQ',
+            slug='operator-faq',
+            document_type=KnowledgeDocument.DocumentType.FAQ,
+            summary='Common operator prompts and escalation paths.',
+        )
+        runbook = Runbook.objects.get(slug='execute-guarded-rollback')
+        AutomationExecution.objects.create(
+            runbook=runbook,
+            service=self.checkout,
+            environment=self.prod,
+            status=AutomationExecution.Status.SUCCEEDED,
+            created_at=timezone.now() - timedelta(days=1),
+        )
+        AgentSnapshot.objects.create(
+            status='healthy',
+            queue_depth=3,
+            tool_success_rate=Decimal('0.98'),
+            token_cost=Decimal('12.50'),
+            active_incidents=1,
+            snapshot_at=timezone.now() - timedelta(minutes=10),
+        )
+        AgentSnapshot.objects.create(
+            status='healthy',
+            queue_depth=2,
+            tool_success_rate=Decimal('0.99'),
+            token_cost=Decimal('11.25'),
+            active_incidents=1,
+            snapshot_at=timezone.now(),
+        )
 
     def test_dashboard_summary_shape(self) -> None:
         response = self.client.get('/api/dashboard/summary/')
@@ -33,16 +167,32 @@ class DashboardApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(len(payload['cards']), 4)
-        self.assertGreaterEqual(len(payload['timeline']), 5)
+        self.assertGreaterEqual(len(payload['timeline']), 2)
         self.assertIn('chatops_examples', payload)
+        self.assertIn('scope', payload)
+        self.assertIn('service_overview', payload)
+
+    def test_dashboard_summary_supports_service_and_environment_filters(self) -> None:
+        response = self.client.get('/api/dashboard/summary/?service=checkout-api&environment=production')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['scope']['service'], 'checkout-api')
+        self.assertEqual(payload['scope']['environment'], 'production')
+        self.assertEqual(payload['scope']['service_count'], 1)
+        self.assertEqual(payload['cards'][1]['value'], '1')
+        self.assertEqual(payload['predictions'][0]['service'], 'checkout-api')
+        self.assertEqual(payload['service_overview'][0]['open_incidents'], 1)
 
     def test_runbook_sections(self) -> None:
-        response = self.client.get('/api/agent/runbook/')
+        response = self.client.get('/api/agent/runbook/?service=checkout-api')
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertIn('observability', payload)
         self.assertIn('chatops', payload)
+        self.assertTrue(any('Investigate checkout latency' in item for item in payload['observability']))
+        self.assertTrue(any('Operator FAQ' in item for item in payload['chatops']))
 
 
 class ControlCenterModelTests(TestCase):
