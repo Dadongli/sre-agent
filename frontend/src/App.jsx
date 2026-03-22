@@ -1,8 +1,11 @@
+import { useMemo, useState } from 'react'
 import { Section } from './components/Section'
 import { StatCard } from './components/StatCard'
 import {
   capabilityHighlights,
+  chatopsPresets,
   dashboard,
+  knowledgeDocuments,
   navigation,
   quickActions,
   runbook,
@@ -11,6 +14,81 @@ import {
 } from './lib/mockData'
 
 function App() {
+  const [activeTab, setActiveTab] = useState(workbenchTabs[0].key)
+  const [serviceFilter, setServiceFilter] = useState('all')
+  const [selectedAction, setSelectedAction] = useState(quickActions[0].title)
+  const [chatInput, setChatInput] = useState(chatopsPresets[0].prompt)
+  const [chatHistory, setChatHistory] = useState([
+    {
+      role: 'assistant',
+      text: '已加载今日值班上下文：2 个高风险服务、7 条活跃告警、1 条待确认自愈动作。',
+    },
+  ])
+  const [knowledgeQuery, setKnowledgeQuery] = useState('runbook')
+
+  const filteredServices = useMemo(() => {
+    if (serviceFilter === 'all') {
+      return serviceHealth
+    }
+
+    return serviceHealth.filter((service) => service.statusTone === serviceFilter)
+  }, [serviceFilter])
+
+  const activeWorkbench = useMemo(
+    () => workbenchTabs.find((tab) => tab.key === activeTab) ?? workbenchTabs[0],
+    [activeTab],
+  )
+
+  const quickActionDetail = useMemo(
+    () => quickActions.find((action) => action.title === selectedAction) ?? quickActions[0],
+    [selectedAction],
+  )
+
+  const filteredKnowledgeDocs = useMemo(() => {
+    const query = knowledgeQuery.trim().toLowerCase()
+
+    if (!query) {
+      return knowledgeDocuments
+    }
+
+    return knowledgeDocuments.filter((doc) => {
+      const searchable = `${doc.title} ${doc.summary} ${doc.tags.join(' ')}`.toLowerCase()
+      return searchable.includes(query)
+    })
+  }, [knowledgeQuery])
+
+  const handleQuickAction = (action) => {
+    setSelectedAction(action.title)
+    setChatHistory((history) => [
+      ...history,
+      { role: 'user', text: `执行快捷动作：${action.title}` },
+      { role: 'assistant', text: action.outcome },
+    ])
+  }
+
+  const handleChatSubmit = (event) => {
+    event.preventDefault()
+
+    const prompt = chatInput.trim()
+    if (!prompt) {
+      return
+    }
+
+    const serviceMatch = serviceHealth.find((service) =>
+      prompt.toLowerCase().includes(service.name.toLowerCase()),
+    )
+    const relatedPrediction = serviceMatch
+      ? dashboard.predictions.find((item) => item.service === serviceMatch.name)
+      : dashboard.predictions[0]
+
+    const assistantReply = serviceMatch
+      ? `${serviceMatch.name} 当前状态为 ${serviceMatch.status}，SLO 为 ${serviceMatch.slo}；建议优先执行：${relatedPrediction?.recommendedAction ?? '检查最新 runbook。'}`
+      : `已基于当前值班上下文生成建议：优先关注 ${dashboard.predictions[0].service}，并结合知识库中相关 runbook 做人工确认。`
+
+    setChatHistory((history) => [...history, { role: 'user', text: prompt }, { role: 'assistant', text: assistantReply }])
+    setChatInput('')
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -36,15 +114,29 @@ function App() {
 
         <Section
           title="Quick Actions"
-          subtitle="把常用操作入口先沉淀为统一控制台动作区，后续可以直接接真实 API。"
+          subtitle="聚合常用操作入口，并把动作结果同步回值班工作台与 ChatOps 上下文。"
         >
-          <div className="quick-actions">
+          <div className="quick-actions quick-actions--stacked">
             {quickActions.map((action) => (
-              <button key={action} className="action-chip" type="button">
-                {action}
+              <button
+                key={action.title}
+                className={`action-chip${selectedAction === action.title ? ' action-chip--active' : ''}`}
+                type="button"
+                onClick={() => handleQuickAction(action)}
+              >
+                {action.title}
               </button>
             ))}
           </div>
+
+          <article className="action-detail-card">
+            <div className="action-detail-card__header">
+              <strong>{quickActionDetail.title}</strong>
+              <span className={`status-pill status-pill--${quickActionDetail.tone}`}>{quickActionDetail.status}</span>
+            </div>
+            <p>{quickActionDetail.description}</p>
+            <small>{quickActionDetail.outcome}</small>
+          </article>
         </Section>
       </aside>
 
@@ -54,14 +146,16 @@ function App() {
             <p className="eyebrow">SRE Agent Control Center</p>
             <h2>把可观测、告警、自愈、知识检索与 ChatOps 汇聚到一个前端基础控制面</h2>
             <p className="hero__copy">
-              当前先完成前端基础骨架、信息分区、卡片体系、状态视图与样例数据联调结构，后续可直接对接后端 API、权限系统与实时流式数据。
+              当前版本重点完善了工作台切换、风险服务筛选、快捷动作反馈、知识检索与 ChatOps 交互，已经具备“值班控制台”核心骨架。
             </p>
           </div>
           <div className="hero__meta">
             <div className="status-pill status-pill--healthy">系统基线稳定</div>
             <div className="hero__actions">
-              <button type="button">查看告警大盘</button>
-              <button className="secondary" type="button">
+              <button type="button" onClick={() => setServiceFilter('warning')}>
+                查看高风险服务
+              </button>
+              <button className="secondary" type="button" onClick={() => setActiveTab('command')}>
                 进入 ChatOps 控制台
               </button>
             </div>
@@ -79,22 +173,45 @@ function App() {
         <div className="dashboard-grid">
           <Section
             title="Operator Workbench"
-            subtitle="作为值班运维的核心工作台入口，先搭建信息架构与交互样式。"
+            subtitle="支持值班 / 平台 / 管理 / ChatOps 视角切换，并暴露本视角下的关键目标与待办。"
           >
             <div className="tab-row" role="tablist" aria-label="Workbench tabs">
-              {workbenchTabs.map((tab, index) => (
+              {workbenchTabs.map((tab) => (
                 <button
-                  key={tab.label}
-                  className={`tab-chip${index === 0 ? ' tab-chip--active' : ''}`}
+                  key={tab.key}
+                  className={`tab-chip${tab.key === activeTab ? ' tab-chip--active' : ''}`}
                   type="button"
                   role="tab"
-                  aria-selected={index === 0}
+                  aria-selected={tab.key === activeTab}
+                  onClick={() => setActiveTab(tab.key)}
                 >
                   <span>{tab.label}</span>
                   <small>{tab.value}</small>
                 </button>
               ))}
             </div>
+
+            <article className="workbench-card">
+              <div className="workbench-card__header">
+                <div>
+                  <p className="eyebrow">{activeWorkbench.value}</p>
+                  <h3>{activeWorkbench.headline}</h3>
+                </div>
+                <span className={`status-pill status-pill--${activeWorkbench.tone}`}>{activeWorkbench.kpi}</span>
+              </div>
+              <p className="workbench-card__copy">{activeWorkbench.description}</p>
+              <div className="checklist-grid">
+                {activeWorkbench.tasks.map((task) => (
+                  <article key={task.title} className="checklist-item">
+                    <div className="checklist-item__header">
+                      <strong>{task.title}</strong>
+                      <span className={`status-pill status-pill--${task.tone}`}>{task.status}</span>
+                    </div>
+                    <p>{task.detail}</p>
+                  </article>
+                ))}
+              </div>
+            </article>
 
             <div className="highlight-grid">
               {capabilityHighlights.map((item) => (
@@ -107,9 +224,27 @@ function App() {
             </div>
           </Section>
 
-          <Section title="服务健康状态" subtitle="首页直接看到服务、负责人、风险与最近动作，形成值班第一视角。">
+          <Section title="服务健康状态" subtitle="支持按状态筛选服务，首页直接看到负责人、风险与最近动作。">
+            <div className="filter-row" role="toolbar" aria-label="Service health filters">
+              {[
+                { key: 'all', label: '全部服务' },
+                { key: 'healthy', label: 'Healthy' },
+                { key: 'warning', label: 'Degraded' },
+                { key: 'improving', label: 'Protected' },
+              ].map((filter) => (
+                <button
+                  key={filter.key}
+                  type="button"
+                  className={`filter-chip${serviceFilter === filter.key ? ' filter-chip--active' : ''}`}
+                  onClick={() => setServiceFilter(filter.key)}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+
             <div className="service-list">
-              {serviceHealth.map((service) => (
+              {filteredServices.map((service) => (
                 <article key={service.name} className="service-row">
                   <div>
                     <div className="service-row__title">
@@ -117,6 +252,7 @@ function App() {
                       <span className={`status-pill status-pill--${service.statusTone}`}>{service.status}</span>
                     </div>
                     <p>{service.owner}</p>
+                    <small className="service-row__summary">{service.summary}</small>
                   </div>
                   <div className="service-row__meta">
                     <strong>{service.slo}</strong>
@@ -166,7 +302,7 @@ function App() {
             </div>
           </Section>
 
-          <Section title="故障预测与自愈建议" subtitle="通过时序信号和知识规则输出可执行操作，形成自动化闭环基础视图。" id="incidents">
+          <Section title="故障预测与自愈建议" subtitle="支持预测风险、执行建议与人工确认状态，一页内形成闭环。" id="incidents">
             <div className="prediction-list">
               {dashboard.predictions.map((item) => (
                 <article key={item.service} className="prediction-card">
@@ -176,6 +312,10 @@ function App() {
                   </div>
                   <p>{item.horizon}</p>
                   <p>{item.recommendedAction}</p>
+                  <div className="prediction-card__footer">
+                    <span className={`status-pill status-pill--${item.tone}`}>{item.status}</span>
+                    <small>{item.owner}</small>
+                  </div>
                 </article>
               ))}
             </div>
@@ -206,7 +346,73 @@ function App() {
             </table>
           </Section>
 
-          <Section title="ChatOps 指令示例" subtitle="适用于一线运维与管理人员的自然语言操作入口。" id="chatops">
+          <Section title="Knowledge Hub" subtitle="在首页直接搜索 SOP、复盘与架构文档，形成诊断与执行支撑。" id="knowledge">
+            <label className="search-field">
+              <span>搜索知识库</span>
+              <input
+                type="search"
+                value={knowledgeQuery}
+                placeholder="搜索 runbook / postmortem / CMDB"
+                onChange={(event) => setKnowledgeQuery(event.target.value)}
+              />
+            </label>
+            <div className="knowledge-list">
+              {filteredKnowledgeDocs.map((doc) => (
+                <article key={doc.title} className="knowledge-card">
+                  <div className="knowledge-card__header">
+                    <h3>{doc.title}</h3>
+                    <span className={`status-pill status-pill--${doc.tone}`}>{doc.type}</span>
+                  </div>
+                  <p>{doc.summary}</p>
+                  <div className="knowledge-card__tags">
+                    {doc.tags.map((tag) => (
+                      <span key={tag}>{tag}</span>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </Section>
+        </div>
+
+        <div className="dashboard-grid dashboard-grid--bottom">
+          <Section title="ChatOps 控制台" subtitle="可直接套用预设提示词，并将交互结果沉淀为值班会话上下文。" id="chatops">
+            <div className="prompt-row">
+              {chatopsPresets.map((preset) => (
+                <button key={preset.label} type="button" className="prompt-chip" onClick={() => setChatInput(preset.prompt)}>
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            <div className="chat-shell">
+              <div className="chat-history" aria-live="polite">
+                {chatHistory.map((message, index) => (
+                  <article
+                    key={`${message.role}-${index}`}
+                    className={`chat-message chat-message--${message.role}`}
+                  >
+                    <strong>{message.role === 'assistant' ? 'Agent' : 'Operator'}</strong>
+                    <p>{message.text}</p>
+                  </article>
+                ))}
+              </div>
+
+              <form className="chat-form" onSubmit={handleChatSubmit}>
+                <label>
+                  <span>输入自然语言指令</span>
+                  <textarea
+                    rows="4"
+                    value={chatInput}
+                    placeholder="例如：汇总 payment-gateway 最近 1 小时异常与建议动作"
+                    onChange={(event) => setChatInput(event.target.value)}
+                  />
+                </label>
+                <button type="submit">发送指令</button>
+              </form>
+            </div>
+          </Section>
+
+          <Section title="ChatOps 指令示例" subtitle="适用于一线运维与管理人员的自然语言操作入口。">
             <ul className="command-list">
               {dashboard.chatopsExamples.map((command) => (
                 <li key={command}>{command}</li>
