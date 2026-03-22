@@ -26,13 +26,21 @@ body {
 
 body,
 button,
-a {
+a,
+input,
+textarea {
   font: inherit;
 }
 
 a {
   color: inherit;
   text-decoration: none;
+}
+
+button,
+input,
+textarea {
+  outline: none;
 }
 
 button {
@@ -43,7 +51,7 @@ button {
   cursor: pointer;
   background: linear-gradient(135deg, #5092ff, #53d0ff);
   color: #07111f;
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
 }
 
 button:hover,
@@ -53,7 +61,11 @@ button:focus-visible,
 .tab-chip:hover,
 .tab-chip:focus-visible,
 .action-chip:hover,
-.action-chip:focus-visible {
+.action-chip:focus-visible,
+.filter-chip:hover,
+.filter-chip:focus-visible,
+.prompt-chip:hover,
+.prompt-chip:focus-visible {
   transform: translateY(-1px);
 }
 
@@ -109,7 +121,10 @@ button.secondary {
 .highlight-card h3,
 .service-row h3,
 .stat-card h3,
-.prediction-card h3 {
+.prediction-card h3,
+.action-detail-card strong,
+.workbench-card h3,
+.knowledge-card h3 {
   margin: 0;
 }
 
@@ -133,13 +148,23 @@ li,
 td,
 th,
 .stat-card__meta,
-.nav-link small {
+.nav-link small,
+.action-detail-card p,
+.action-detail-card small,
+.workbench-card__copy,
+.checklist-item p,
+.knowledge-card p,
+.chat-message p,
+.search-field span,
+.chat-form span,
+.service-row__summary {
   color: #b8c8dc;
 }
 
 .nav-list,
 .command-list,
-.capability-grid ul {
+.capability-grid ul,
+.knowledge-card__tags {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -201,17 +226,34 @@ th,
 
 .hero__actions,
 .quick-actions,
-.tab-row {
+.tab-row,
+.filter-row,
+.prompt-row,
+.knowledge-card__tags {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
 }
 
+.quick-actions--stacked {
+  margin-bottom: 1rem;
+}
+
 .action-chip,
-.tab-chip {
+.tab-chip,
+.filter-chip,
+.prompt-chip {
   background: rgba(15, 28, 48, 0.9);
   color: #dce9ff;
   border: 1px solid rgba(110, 146, 245, 0.16);
+}
+
+.action-chip--active,
+.filter-chip--active,
+.prompt-chip:focus-visible,
+.tab-chip--active {
+  border-color: rgba(83, 208, 255, 0.36);
+  box-shadow: inset 0 0 0 1px rgba(83, 208, 255, 0.16);
 }
 
 .tab-chip {
@@ -225,9 +267,9 @@ th,
   color: #7f97b9;
 }
 
-.tab-chip--active {
-  border-color: rgba(83, 208, 255, 0.32);
-  box-shadow: inset 0 0 0 1px rgba(83, 208, 255, 0.16);
+.filter-chip,
+.prompt-chip {
+  padding: 0.7rem 1rem;
 }
 
 .status-pill {
@@ -262,7 +304,9 @@ th,
 .stats-grid,
 .dashboard-grid,
 .capability-grid,
-.highlight-grid {
+.highlight-grid,
+.checklist-grid,
+.knowledge-list {
   display: grid;
   gap: 1rem;
 }
@@ -280,14 +324,21 @@ th,
 }
 
 .highlight-grid,
-.capability-grid {
+.capability-grid,
+.checklist-grid,
+.knowledge-list {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .highlight-card,
 .stat-card,
 .prediction-card,
-.service-row {
+.service-row,
+.action-detail-card,
+.workbench-card,
+.checklist-item,
+.knowledge-card,
+.chat-message {
   border-radius: 18px;
   padding: 1rem 1.1rem;
   background: rgba(15, 28, 48, 0.9);
@@ -301,7 +352,12 @@ th,
 .stat-card__header,
 .prediction-card__header,
 .service-row,
-.service-row__title {
+.service-row__title,
+.action-detail-card__header,
+.workbench-card__header,
+.checklist-item__header,
+.knowledge-card__header,
+.prediction-card__footer {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -310,7 +366,9 @@ th,
 
 .stat-card__label,
 .stat-card__trend,
-.stat-card__meta {
+.stat-card__meta,
+.workbench-card__copy,
+.service-row__summary {
   margin: 0;
 }
 
@@ -344,7 +402,8 @@ th,
   text-align: right;
 }
 
-.service-row__meta small {
+.service-row__meta small,
+.prediction-card__footer small {
   color: #8fa4c0;
 }
 
@@ -361,7 +420,8 @@ th,
   border-bottom: 1px solid rgba(110, 146, 245, 0.16);
 }
 
-.command-list {
+.command-list,
+.chat-history {
   display: grid;
   gap: 0.8rem;
 }
@@ -386,6 +446,52 @@ th,
 .capability-grid ul {
   display: grid;
   gap: 0.8rem;
+}
+
+.workbench-card,
+.chat-shell {
+  margin-top: 1rem;
+}
+
+.action-detail-card,
+.workbench-card,
+.chat-shell,
+.search-field input,
+.chat-form textarea {
+  width: 100%;
+}
+
+.search-field,
+.chat-form {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.search-field input,
+.chat-form textarea {
+  border-radius: 16px;
+  border: 1px solid rgba(110, 146, 245, 0.16);
+  background: rgba(7, 17, 31, 0.8);
+  color: #e5eef9;
+  padding: 0.9rem 1rem;
+}
+
+.chat-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.chat-history {
+  max-height: 360px;
+  overflow: auto;
+}
+
+.chat-message--assistant {
+  background: rgba(17, 44, 79, 0.9);
+}
+
+.chat-message--user {
+  background: rgba(23, 31, 48, 0.9);
 }
 
 @media (max-width: 1120px) {
@@ -422,7 +528,12 @@ th,
   .service-row,
   .stat-card__header,
   .prediction-card__header,
-  .service-row__title {
+  .service-row__title,
+  .action-detail-card__header,
+  .workbench-card__header,
+  .checklist-item__header,
+  .knowledge-card__header,
+  .prediction-card__footer {
     flex-direction: column;
   }
 
