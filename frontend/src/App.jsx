@@ -57,6 +57,25 @@ function App() {
     })
   }, [knowledgeQuery])
 
+  const serviceOverview = useMemo(() => {
+    const healthy = serviceHealth.filter((service) => service.statusTone === 'healthy').length
+    const warning = serviceHealth.filter((service) => service.statusTone === 'warning').length
+    const improving = serviceHealth.filter((service) => service.statusTone === 'improving').length
+
+    return {
+      total: serviceHealth.length,
+      healthy,
+      warning,
+      improving,
+    }
+  }, [])
+
+  const averageRiskScore = useMemo(() => {
+    const scores = dashboard.predictions.map((item) => item.score)
+    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length
+    return Math.round(average * 100)
+  }, [])
+
   const handleQuickAction = (action) => {
     setSelectedAction(action.title)
     setChatHistory((history) => [
@@ -151,6 +170,20 @@ function App() {
           </div>
           <div className="hero__meta">
             <div className="status-pill status-pill--healthy">系统基线稳定</div>
+            <div className="hero-kpi-grid">
+              <article className="hero-kpi-card">
+                <span>服务总数</span>
+                <strong>{serviceOverview.total}</strong>
+              </article>
+              <article className="hero-kpi-card">
+                <span>需关注</span>
+                <strong>{serviceOverview.warning}</strong>
+              </article>
+              <article className="hero-kpi-card">
+                <span>平均风险</span>
+                <strong>{averageRiskScore}%</strong>
+              </article>
+            </div>
             <div className="hero__actions">
               <button type="button" onClick={() => setServiceFilter('warning')}>
                 查看高风险服务
@@ -225,6 +258,11 @@ function App() {
           </Section>
 
           <Section title="服务健康状态" subtitle="支持按状态筛选服务，首页直接看到负责人、风险与最近动作。">
+            <div className="service-overview-row">
+              <span>Healthy {serviceOverview.healthy}</span>
+              <span>Degraded {serviceOverview.warning}</span>
+              <span>Protected {serviceOverview.improving}</span>
+            </div>
             <div className="filter-row" role="toolbar" aria-label="Service health filters">
               {[
                 { key: 'all', label: '全部服务' },
@@ -312,6 +350,11 @@ function App() {
                   </div>
                   <p>{item.horizon}</p>
                   <p>{item.recommendedAction}</p>
+                  <div className="prediction-progress">
+                    <div className="prediction-progress__track">
+                      <span style={{ width: `${Math.round(item.score * 100)}%` }} />
+                    </div>
+                  </div>
                   <div className="prediction-card__footer">
                     <span className={`status-pill status-pill--${item.tone}`}>{item.status}</span>
                     <small>{item.owner}</small>
@@ -357,20 +400,30 @@ function App() {
               />
             </label>
             <div className="knowledge-list">
-              {filteredKnowledgeDocs.map((doc) => (
-                <article key={doc.title} className="knowledge-card">
-                  <div className="knowledge-card__header">
-                    <h3>{doc.title}</h3>
-                    <span className={`status-pill status-pill--${doc.tone}`}>{doc.type}</span>
-                  </div>
-                  <p>{doc.summary}</p>
-                  <div className="knowledge-card__tags">
-                    {doc.tags.map((tag) => (
-                      <span key={tag}>{tag}</span>
-                    ))}
-                  </div>
+              {filteredKnowledgeDocs.length ? (
+                filteredKnowledgeDocs.map((doc) => (
+                  <article key={doc.title} className="knowledge-card">
+                    <div className="knowledge-card__header">
+                      <h3>{doc.title}</h3>
+                      <span className={`status-pill status-pill--${doc.tone}`}>{doc.type}</span>
+                    </div>
+                    <p>{doc.summary}</p>
+                    <div className="knowledge-card__tags">
+                      {doc.tags.map((tag) => (
+                        <span key={tag}>{tag}</span>
+                      ))}
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <article className="knowledge-empty">
+                  <strong>没有匹配文档</strong>
+                  <p>可尝试关键词：runbook / kafka / payment / topology。</p>
+                  <button type="button" className="secondary" onClick={() => setKnowledgeQuery('')}>
+                    清空搜索
+                  </button>
                 </article>
-              ))}
+              )}
             </div>
           </Section>
         </div>
