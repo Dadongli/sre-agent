@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useDeferredValue, useMemo, useState } from 'react'
 import { Section } from './components/Section'
 import { StatCard } from './components/StatCard'
 import {
@@ -25,6 +25,7 @@ function App() {
     },
   ])
   const [knowledgeQuery, setKnowledgeQuery] = useState('runbook')
+  const deferredKnowledgeQuery = useDeferredValue(knowledgeQuery)
 
   const filteredServices = useMemo(() => {
     if (serviceFilter === 'all') {
@@ -45,7 +46,7 @@ function App() {
   )
 
   const filteredKnowledgeDocs = useMemo(() => {
-    const query = knowledgeQuery.trim().toLowerCase()
+    const query = deferredKnowledgeQuery.trim().toLowerCase()
 
     if (!query) {
       return knowledgeDocuments
@@ -55,7 +56,7 @@ function App() {
       const searchable = `${doc.title} ${doc.summary} ${doc.tags.join(' ')}`.toLowerCase()
       return searchable.includes(query)
     })
-  }, [knowledgeQuery])
+  }, [deferredKnowledgeQuery])
 
   const serviceOverview = useMemo(() => {
     const healthy = serviceHealth.filter((service) => service.statusTone === 'healthy').length
@@ -107,6 +108,8 @@ function App() {
     setChatHistory((history) => [...history, { role: 'user', text: prompt }, { role: 'assistant', text: assistantReply }])
     setChatInput('')
   }
+
+  const canSubmitChat = chatInput.trim().length > 0
 
   return (
     <div className="app-shell">
@@ -191,6 +194,11 @@ function App() {
               <button className="secondary" type="button" onClick={() => setActiveTab('command')}>
                 进入 ChatOps 控制台
               </button>
+              {serviceFilter !== 'all' ? (
+                <button className="secondary" type="button" onClick={() => setServiceFilter('all')}>
+                  重置服务筛选
+                </button>
+              ) : null}
             </div>
           </div>
         </header>
@@ -282,22 +290,32 @@ function App() {
             </div>
 
             <div className="service-list">
-              {filteredServices.map((service) => (
-                <article key={service.name} className="service-row">
-                  <div>
-                    <div className="service-row__title">
-                      <h3>{service.name}</h3>
-                      <span className={`status-pill status-pill--${service.statusTone}`}>{service.status}</span>
+              {filteredServices.length ? (
+                filteredServices.map((service) => (
+                  <article key={service.name} className="service-row">
+                    <div>
+                      <div className="service-row__title">
+                        <h3>{service.name}</h3>
+                        <span className={`status-pill status-pill--${service.statusTone}`}>{service.status}</span>
+                      </div>
+                      <p>{service.owner}</p>
+                      <small className="service-row__summary">{service.summary}</small>
                     </div>
-                    <p>{service.owner}</p>
-                    <small className="service-row__summary">{service.summary}</small>
-                  </div>
-                  <div className="service-row__meta">
-                    <strong>{service.slo}</strong>
-                    <small>{service.lastEvent}</small>
-                  </div>
+                    <div className="service-row__meta">
+                      <strong>{service.slo}</strong>
+                      <small>{service.lastEvent}</small>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <article className="knowledge-empty">
+                  <strong>当前筛选暂无服务</strong>
+                  <p>尝试切换筛选或返回“全部服务”查看完整健康状态。</p>
+                  <button type="button" className="secondary" onClick={() => setServiceFilter('all')}>
+                    返回全部服务
+                  </button>
                 </article>
-              ))}
+              )}
             </div>
           </Section>
         </div>
@@ -460,7 +478,12 @@ function App() {
                     onChange={(event) => setChatInput(event.target.value)}
                   />
                 </label>
-                <button type="submit">发送指令</button>
+                <div className="chat-form__footer">
+                  <small>字符数：{chatInput.length}</small>
+                  <button type="submit" disabled={!canSubmitChat}>
+                    发送指令
+                  </button>
+                </div>
               </form>
             </div>
           </Section>

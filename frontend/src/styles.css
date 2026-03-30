@@ -54,6 +54,12 @@ button {
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
 }
 
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
 button:hover,
 button:focus-visible,
 .nav-link:hover,
@@ -506,6 +512,17 @@ th,
 .chat-form {
   display: grid;
   gap: 0.65rem;
+}
+
+.chat-form__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.chat-form__footer small {
+  color: #8fa4c0;
 }
 
 .prediction-progress {
